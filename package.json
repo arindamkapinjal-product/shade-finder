@@ -1,0 +1,10 @@
+{
+  "name": "shade-finder",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Privacy-first foundation and lipstick shade finder for Indian skin tones",
+  "scripts": {
+    "test": "node --test"
+  }
+}

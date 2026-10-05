@@ -1,0 +1,6 @@
+# Netlify settings. You don't need to edit this file.
+[build]
+  publish = "site"
+
+[functions]
+  directory = "netlify/functions"

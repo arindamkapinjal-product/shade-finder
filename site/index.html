@@ -1,0 +1,565 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Shade Finder — try any lipstick on before you buy</title>
+<meta name="description" content="Paste a lipstick link or type a shade and see it on your face. Your camera and photos never leave your device.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #EEEBF2;
+    --ink: #22192C;
+    --muted: #6A5F77;
+    --line: #D8D1E0;
+    --surface: #FFFFFF;
+    --accent: #A3174A;
+    --accent-ink: #FFFFFF;
+    --ok: #2F7A55;
+    --warn: #A5621B;
+    --radius: 14px;
+    --display: "Gloock", Georgia, "Times New Roman", serif;
+    --body: "Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #1A1520; --ink: #F1ECF5; --muted: #B3A8BF; --line: #3A3144;
+      --surface: #241D2C; --accent: #E0527F; --accent-ink: #1A1520; --ok: #6CC79A; --warn: #E3A35A;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #1A1520; --ink: #F1ECF5; --muted: #B3A8BF; --line: #3A3144;
+    --surface: #241D2C; --accent: #E0527F; --accent-ink: #1A1520; --ok: #6CC79A; --warn: #E3A35A;
+  }
+  * { box-sizing: border-box; }
+  :root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg); color: var(--ink); font-family: var(--body);
+    font-size: 16px; line-height: 1.5; -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 28px 20px 56px; }
+  header.top { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 28px; }
+  h1 { font-family: var(--display); font-weight: 400; font-size: clamp(2rem, 4.5vw, 3.1rem); line-height: 1.05; margin: 0; letter-spacing: -0.01em; }
+  .lede { color: var(--muted); max-width: 46ch; margin: 8px 0 0; }
+  .privacy { font-size: .9rem; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+  .privacy svg { flex: none; }
+
+  .grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 36px; align-items: start; }
+  @media (max-width: 860px) { .grid { grid-template-columns: 1fr; gap: 24px; } }
+
+  /* The mirror: the one bold element */
+  .mirror { position: sticky; top: 20px; }
+  @media (max-width: 860px) { .mirror { position: static; } }
+  .frame {
+    position: relative; aspect-ratio: 3 / 4; width: 100%; max-width: 480px; margin: 0 auto;
+    border-radius: 50% 50% 22px 22px / 34% 34% 22px 22px;
+    background: linear-gradient(160deg, #3B2F47, #22192C);
+    border: 10px solid var(--surface);
+    box-shadow: 0 0 0 1px var(--line), 0 24px 48px -28px rgba(34, 25, 44, .55);
+    overflow: hidden;
+  }
+  .frame canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+  .frame canvas.mirrored { transform: scaleX(-1); }
+  .frame.picking canvas { cursor: crosshair; object-fit: contain; }
+  .empty {
+    position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 18% 14% 10%; color: #EDE6F3; gap: 10px;
+  }
+  .empty p { margin: 0; font-size: .95rem; color: #CFC4DA; max-width: 30ch; }
+  .empty .big { font-family: var(--display); font-size: 1.6rem; color: #FFFFFF; line-height: 1.15; }
+  .hint {
+    position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%);
+    background: rgba(20, 14, 26, .82); color: #fff; font-size: .88rem; padding: 8px 14px; border-radius: 999px;
+    max-width: calc(100% - 32px); text-align: center; pointer-events: none;
+  }
+  .hint[hidden] { display: none; }
+  .controls { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 18px; }
+
+  button, .btn {
+    font: inherit; font-weight: 600; font-size: .95rem; border-radius: 999px; padding: 11px 20px;
+    border: 1.5px solid var(--ink); background: transparent; color: var(--ink); cursor: pointer;
+  }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button:focus-visible, .swatch-btn:focus-visible, label.btn:focus-within { outline: 3px solid var(--accent); outline-offset: 3px; }
+  label.btn input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+  label.btn { position: relative; display: inline-block; }
+
+  /* Right panel */
+  .panel h2 { font-family: var(--display); font-weight: 400; font-size: 1.55rem; margin: 0 0 12px; line-height: 1.2; }
+  .panel h3 { font-size: 1rem; margin: 0 0 10px; font-weight: 700; }
+  .block { padding: 22px 0; border-top: 1px solid var(--line); }
+  .block:first-child { border-top: 0; padding-top: 0; }
+  .steps { margin: 0; padding: 0 0 0 1.25em; }
+  .steps li { margin-bottom: 10px; padding-left: 4px; }
+  .steps li::marker { font-family: var(--display); color: var(--accent); }
+  .muted { color: var(--muted); }
+  .small { font-size: .88rem; }
+  .status { font-size: .92rem; padding: 12px 14px; border-radius: 10px; background: var(--surface); border: 1px solid var(--line); margin-top: 14px; }
+  .status.error { border-color: var(--accent); }
+  .status[hidden] { display: none; }
+
+  /* Tone spectrum */
+  .spectrum { position: relative; height: 18px; border-radius: 999px; margin: 18px 0 8px;
+    background: linear-gradient(90deg, #F1D3BE, #E3B697, #C98F6A, #A96E4B, #7A4A30, #4A2C1D); }
+  .marker { position: absolute; top: 50%; width: 26px; height: 26px; border-radius: 50%; transform: translate(-50%, -50%);
+    border: 3px solid var(--surface); box-shadow: 0 0 0 1.5px var(--ink); transition: left .6s cubic-bezier(.2,.8,.2,1); }
+  .spectrum-labels { display: flex; justify-content: space-between; font-size: .78rem; color: var(--muted); }
+  .facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
+  .fact { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; }
+  .fact b { display: block; font-size: 1.05rem; }
+  .fact span { font-size: .8rem; color: var(--muted); }
+  .meter { height: 6px; border-radius: 999px; background: var(--line); margin-top: 8px; overflow: hidden; }
+  .meter i { display: block; height: 100%; background: var(--ok); }
+  .reasons { margin: 10px 0 0; padding-left: 1.1em; font-size: .88rem; color: var(--muted); }
+
+  /* Foundation matches */
+  .match { display: flex; align-items: center; gap: 14px; padding: 10px 0; }
+  .pair { display: flex; flex: none; }
+  .pair i { width: 34px; height: 44px; display: block; }
+  .pair i:first-child { border-radius: 10px 0 0 10px; }
+  .pair i:last-child { border-radius: 0 10px 10px 0; }
+  .match .name { font-weight: 600; }
+  .tag { display: inline-block; font-size: .78rem; font-weight: 600; padding: 2px 9px; border-radius: 999px; border: 1px solid currentColor; margin-top: 3px; }
+  .tag.good { color: var(--ok); } .tag.okay { color: var(--warn); } .tag.far { color: var(--accent); }
+
+  /* Lipsticks */
+  .family { margin-bottom: 16px; }
+  .family-name { font-size: .85rem; color: var(--muted); margin-bottom: 8px; }
+  .swatches { display: flex; flex-wrap: wrap; gap: 10px; }
+  .swatch-btn { display: flex; align-items: center; gap: 8px; padding: 6px 12px 6px 6px; border-radius: 999px;
+    border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; font-size: .88rem; cursor: pointer; }
+  .swatch-btn i { width: 26px; height: 26px; border-radius: 50%; display: block; flex: none; box-shadow: inset 0 0 0 1px rgba(0,0,0,.12); }
+  .swatch-btn[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+  .nude-target { display: flex; align-items: center; gap: 12px; margin-top: 6px; }
+  .nude-target i { width: 44px; height: 44px; border-radius: 50%; display: block; }
+  .note { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; }
+  .note p { margin: 0 0 10px; }
+  .note p:last-child { margin-bottom: 0; }
+  footer { margin-top: 40px; font-size: .82rem; color: var(--muted); max-width: 70ch; }
+  [hidden] { display: none !important; }
+  @media (prefers-reduced-motion: reduce) { .marker { transition: none; } }
+
+  /* Search and product card */
+  .field { display: flex; gap: 10px; margin-top: 8px; }
+  .field input[type="text"] { flex: 1; min-width: 0; font: inherit; padding: 11px 16px; border-radius: 999px; border: 1.5px solid var(--ink); background: var(--surface); color: var(--ink); }
+  .field input[type="text"]:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  @media (max-width: 480px) { .field { flex-direction: column; } }
+  .linklike { border: 0; padding: 0; background: none; color: var(--accent); text-decoration: underline; font-weight: 600; font-size: inherit; }
+  .product-card { display: flex; align-items: center; gap: 14px; }
+  .chip { width: 56px; height: 56px; border-radius: 50%; flex: none; display: block; box-shadow: inset 0 0 0 1px rgba(0,0,0,.15); }
+  .tweak { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 12px; }
+  .tweak input[type="color"] { width: 44px; height: 36px; padding: 0; border: 1.5px solid var(--ink); border-radius: 8px; background: var(--surface); }
+  .preset-tabs { display: flex; gap: 8px; margin: 4px 0 12px; }
+  .preset-tabs button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+  .sliders { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 18px; margin-top: 14px; }
+  @media (max-width: 480px) { .sliders { grid-template-columns: 1fr; } }
+  .sliders label { display: flex; justify-content: space-between; font-size: .85rem; }
+  .sliders input[type="range"] { width: 100%; accent-color: var(--accent); }
+  details.fine summary { cursor: pointer; font-weight: 600; font-size: .92rem; margin-top: 14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Shade Finder</h1>
+      <p class="lede">Paste a lipstick link or type a shade, and see it on your face before you buy.</p>
+    </div>
+    <p class="privacy">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+      Your camera and photos stay on your device. Only the text you type is sent.
+    </p>
+  </header>
+
+  <div class="grid">
+    <section class="mirror" aria-label="Try-on mirror">
+      <div class="frame" id="frame">
+        <canvas id="stage" width="960" height="1280" aria-label="Your camera or photo with the lipstick on"></canvas>
+        <div class="empty" id="empty">
+          <div class="big">Your try-on appears here</div>
+          <p>Add a lipstick on the right and the camera will open with the shade on your lips.</p>
+        </div>
+        <div class="hint" id="hint" hidden></div>
+      </div>
+      <div class="controls" id="controls"></div>
+      <div class="status" id="status" role="status" aria-live="polite" hidden></div>
+    </section>
+
+    <section class="panel" aria-live="polite">
+      <div class="block">
+        <h2>Which lipstick?</h2>
+        <form id="find" novalidate>
+          <label for="q" class="small muted">Product link (Nykaa, Amazon, a brand site) or brand and shade name</label>
+          <div class="field">
+            <input id="q" name="q" type="text" inputmode="url" autocomplete="off" maxlength="500" placeholder="e.g. Maybelline Super Stay Matte Ink Pioneer" />
+            <button class="primary" id="go" type="submit">Try it on</button>
+          </div>
+        </form>
+        <p class="small muted" style="margin-bottom:0">No link handy? <button type="button" class="linklike" id="manual-open">Pick a colour yourself</button></p>
+      </div>
+
+      <div class="block">
+        <h2>Or try an example shade</h2>
+        <div class="preset-tabs" role="group" aria-label="Shade set">
+          <button type="button" id="set-A" aria-pressed="true">Everyday</button>
+          <button type="button" id="set-B" aria-pressed="false">Bold</button>
+        </div>
+        <div class="swatches" id="preset-swatches"></div>
+      </div>
+
+      <div class="block" id="product" hidden>
+        <h2>On your lips</h2>
+        <div class="product-card">
+          <i class="chip" id="p-chip"></i>
+          <div>
+            <b id="p-name">–</b>
+            <div class="small muted" id="p-shade"></div>
+            <span class="tag" id="p-tag"></span>
+          </div>
+        </div>
+        <p class="small muted" id="p-note"></p>
+        <div class="tweak">
+          <label for="p-color" class="small">Colour looks off? Adjust it:</label>
+          <input type="color" id="p-color" aria-label="Adjust lipstick colour" />
+          <button type="button" id="clear-tryon">Remove lipstick</button>
+        </div>
+        <details class="fine">
+          <summary>Fine-tune the look</summary>
+          <div class="sliders" id="sliders"></div>
+          <p class="small muted">Too plastic: lower smoothing. Too faint: raise opacity. Flat: raise gloss. Grey: raise brightness. Neon: lower saturation.</p>
+        </details>
+      </div>
+
+      <div class="block" id="pc-block" hidden>
+        <h2>Experiment: Perfect Corp</h2>
+        <p class="small muted">Local test only. Unlike everything else here, this <b>sends your photo to Perfect Corp's servers</b> and shows their result. It is a still image, not live.</p>
+        <label class="small"><input type="checkbox" id="pc-consent"> I understand my photo is uploaded to Perfect Corp for this test.</label>
+        <div class="controls" style="justify-content:flex-start"><button type="button" id="pc-go" disabled>Try with Perfect Corp</button></div>
+        <p class="small muted" id="pc-status" role="status"></p>
+        <img id="pc-result" alt="Perfect Corp try-on result" hidden style="max-width:100%;border-radius:14px;border:1px solid var(--line)">
+      </div>
+
+      <div class="block small muted">
+        <b>How it works.</b> An AI reads the product page (or your shade name) to find the shade and an approximate colour. Your face is tracked in your browser to place the lipstick on your lips. Nothing from your camera is uploaded.
+      </div>
+    </section>
+  </div>
+
+  <footer>
+    Screens and cameras show colours differently, and shade colours here are approximate. Treat this as a preview and test in person before you buy. Not affiliated with any brand shown.
+  </footer>
+</div>
+
+<script type="module">
+import { PRESETS, RANGES, DEFAULT_PARAMS } from "./presets.js";
+import { adjustColour, edgeBlurPx, paintAlphas } from "./lipcolour.js";
+import { FaceLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
+
+const WASM_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm";
+const MODEL_URL = "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
+
+/* ---------- Face landmark points for the lips ---------- */
+const LIP_OUTER = [61,146,91,181,84,17,314,405,321,375,291,409,270,269,267,0,37,39,40,185];
+const LIP_INNER = [78,95,88,178,87,14,317,402,318,324,308,415,310,311,312,13,82,81,80,191];
+
+/* ---------- State ---------- */
+const $ = (id) => document.getElementById(id);
+const stage = $("stage"), ctx = stage.getContext("2d", { willReadFrequently: true });
+const photo = document.createElement("canvas"), pctx = photo.getContext("2d");
+const lipLayer = document.createElement("canvas"), lctx = lipLayer.getContext("2d");
+const video = document.createElement("video");
+video.playsInline = true; video.muted = true;
+
+let landmarker = null, runningMode = null, stream = null;
+let mode = "idle";          // idle | live | photo
+let liveLandmarks = null, photoLandmarks = null, lastVideoTime = -1, rafId = null;
+let tryOnHex = null, tryOnParams = { ...DEFAULT_PARAMS };
+const glossLayer = document.createElement("canvas"), gctx = glossLayer.getContext("2d");
+
+/* ---------- UI helpers ---------- */
+function setStatus(msg, isError = false) {
+  const s = $("status"); s.hidden = !msg; s.textContent = msg || ""; s.classList.toggle("error", !!isError);
+}
+function setHint(msg) { const h = $("hint"); h.hidden = !msg; h.textContent = msg || ""; }
+function button(label, onClick, primary = false) {
+  const b = document.createElement("button"); b.type = "button"; b.textContent = label;
+  if (primary) b.className = "primary"; b.addEventListener("click", onClick); return b;
+}
+function uploadButton(label) {
+  const l = document.createElement("label"); l.className = "btn"; l.append(label);
+  const i = document.createElement("input"); i.type = "file"; i.accept = "image/*";
+  i.addEventListener("change", () => { if (i.files[0]) loadUpload(i.files[0]); i.value = ""; });
+  l.append(i); return l;
+}
+function renderControls() {
+  const c = $("controls"); c.replaceChildren();
+  if (mode === "idle") { c.append(button("Start camera", startCamera, true), uploadButton("Upload a photo")); }
+  else if (mode === "live") { c.append(button("Stop camera", stopCamera), uploadButton("Use a photo instead")); }
+  else { c.append(button("Use live camera", startCamera, true), uploadButton("Choose another photo")); }
+}
+
+/* ---------- Face model ---------- */
+async function ensureModel(wanted) {
+  if (!landmarker) {
+    setStatus("Loading the face model (first time only)…");
+    const fileset = await FilesetResolver.forVisionTasks(WASM_URL);
+    const base = { modelAssetPath: MODEL_URL };
+    try {
+      landmarker = await FaceLandmarker.createFromOptions(fileset, { baseOptions: { ...base, delegate: "GPU" }, runningMode: wanted, numFaces: 1 });
+    } catch {
+      landmarker = await FaceLandmarker.createFromOptions(fileset, { baseOptions: { ...base, delegate: "CPU" }, runningMode: wanted, numFaces: 1 });
+    }
+    runningMode = wanted; setStatus("");
+  } else if (runningMode !== wanted) {
+    await landmarker.setOptions({ runningMode: wanted }); runningMode = wanted;
+  }
+}
+
+/* ---------- Camera ---------- */
+async function startCamera() {
+  if (mode === "live") return true;
+  if (!window.isSecureContext) { setStatus("The camera only works on a secure (https) link. Upload a photo instead, or open the published site.", true); renderControls(); return false; }
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 960 } }, audio: false });
+  } catch (e) {
+    setStatus(e && e.name === "NotAllowedError"
+      ? "Camera access is blocked. Allow the camera in your browser settings, or upload a photo instead."
+      : "The camera could not start. Upload a photo instead.", true);
+    renderControls(); return false;
+  }
+  try { await ensureModel("VIDEO"); } catch { setStatus("The face model could not load. Check your internet connection and try again.", true); stopStream(); renderControls(); return false; }
+  video.srcObject = stream; await video.play();
+  stage.width = video.videoWidth; stage.height = video.videoHeight;
+  stage.classList.add("mirrored"); $("empty").hidden = true;
+  mode = "live"; setStatus(""); setHint(tryOnHex ? "" : "Add a lipstick to see it on your lips"); renderControls(); loop();
+  return true;
+}
+function stopStream() { if (stream) stream.getTracks().forEach((t) => t.stop()); stream = null; }
+function stopCamera() {
+  cancelAnimationFrame(rafId); stopStream(); mode = "idle"; setHint("");
+  ctx.clearRect(0, 0, stage.width, stage.height); $("empty").hidden = false; renderControls();
+}
+function loop() {
+  if (mode !== "live") return;
+  if (video.readyState >= 2 && video.currentTime !== lastVideoTime) {
+    lastVideoTime = video.currentTime;
+    if (runningMode === "VIDEO") {
+      const r = landmarker.detectForVideo(video, performance.now());
+      liveLandmarks = r.faceLandmarks && r.faceLandmarks[0] ? r.faceLandmarks[0] : null;
+    }
+    ctx.drawImage(video, 0, 0, stage.width, stage.height);
+    if (tryOnHex && liveLandmarks) drawLips(liveLandmarks, tryOnHex, tryOnParams);
+    setHint(tryOnHex && !liveLandmarks ? "Face the camera so the lipstick can find your lips" : "");
+  }
+  rafId = requestAnimationFrame(loop);
+}
+
+/* ---------- Upload ---------- */
+async function loadUpload(file) {
+  const img = new Image(); const url = URL.createObjectURL(file);
+  img.onload = async () => {
+    const scale = Math.min(1, 1600 / Math.max(img.width, img.height));
+    photo.width = Math.round(img.width * scale); photo.height = Math.round(img.height * scale);
+    pctx.drawImage(img, 0, 0, photo.width, photo.height); URL.revokeObjectURL(url);
+    try { await ensureModel("IMAGE"); } catch { setStatus("The face model could not load. Check your internet connection and try again.", true); return; }
+    const r = landmarker.detect(photo);
+    if (!r.faceLandmarks || !r.faceLandmarks[0]) { setStatus("No face found in that photo. Use a clear, front-facing photo in even light.", true); return; }
+    cancelAnimationFrame(rafId); stopStream();
+    photoLandmarks = r.faceLandmarks[0]; stage.classList.remove("mirrored"); $("empty").hidden = true;
+    mode = "photo"; setStatus(""); setHint(tryOnHex ? "" : "Add a lipstick to see it on your lips"); renderControls(); drawPhoto();
+  };
+  img.onerror = () => setStatus("That file could not be opened. Try a JPG or PNG photo.", true);
+  img.src = url;
+}
+function drawPhoto() {
+  stage.width = photo.width; stage.height = photo.height;
+  ctx.drawImage(photo, 0, 0);
+  if (tryOnHex && photoLandmarks) drawLips(photoLandmarks, tryOnHex, tryOnParams);
+}
+
+/* ---------- Lipstick try-on ---------- */
+function lipPath(c, lm, w, h) {
+  c.beginPath();
+  LIP_OUTER.forEach((i, k) => { const x = lm[i].x * w, y = lm[i].y * h; k ? c.lineTo(x, y) : c.moveTo(x, y); }); c.closePath();
+  LIP_INNER.forEach((i, k) => { const x = lm[i].x * w, y = lm[i].y * h; k ? c.lineTo(x, y) : c.moveTo(x, y); }); c.closePath();
+}
+function drawLips(lm, hex, p) {
+  const w = stage.width, h = stage.height;
+  if (lipLayer.width !== w || lipLayer.height !== h) { lipLayer.width = w; lipLayer.height = h; glossLayer.width = w; glossLayer.height = h; }
+  lctx.clearRect(0, 0, w, h);
+  lctx.filter = `blur(${edgeBlurPx(w, p.smoothing)}px)`; // soft edge so the lipstick doesn't look like a sticker
+  lctx.fillStyle = adjustColour(hex, p); lipPath(lctx, lm, w, h); lctx.fill("evenodd");
+  lctx.filter = "none";
+  const a = paintAlphas(p.opacity);
+  ctx.save();
+  ctx.globalCompositeOperation = "color"; ctx.globalAlpha = a.colour; ctx.drawImage(lipLayer, 0, 0);   // takes the shade's hue, keeps lip texture
+  ctx.globalCompositeOperation = "multiply"; ctx.globalAlpha = a.depth; ctx.drawImage(lipLayer, 0, 0); // adds depth
+  ctx.restore();
+  if (p.gloss > 0) drawGloss(lm, w, h, p.gloss);
+}
+// A soft highlight on the centre of the lower lip, clipped to the lip shape
+function drawGloss(lm, w, h, amount) {
+  const cx = lm[14].x * w, top = lm[14].y * h, bottom = lm[17].y * h;
+  const lipW = Math.abs(lm[291].x - lm[61].x) * w;
+  gctx.clearRect(0, 0, w, h);
+  gctx.save();
+  gctx.translate(cx, top + (bottom - top) * 0.45); gctx.scale(1, Math.max(0.15, (bottom - top) / lipW * 1.4));
+  const g = gctx.createRadialGradient(0, 0, 0, 0, 0, lipW * 0.28);
+  g.addColorStop(0, "rgba(255,255,255,1)"); g.addColorStop(1, "rgba(255,255,255,0)");
+  gctx.fillStyle = g; gctx.fillRect(-lipW, -lipW, lipW * 2, lipW * 2);
+  gctx.restore();
+  gctx.globalCompositeOperation = "destination-in"; gctx.drawImage(lipLayer, 0, 0); gctx.globalCompositeOperation = "source-over";
+  ctx.save(); ctx.globalCompositeOperation = "soft-light"; ctx.globalAlpha = Math.min(1, amount * 1.2); ctx.drawImage(glossLayer, 0, 0);
+  ctx.globalCompositeOperation = "screen"; ctx.globalAlpha = amount * 0.25; ctx.drawImage(glossLayer, 0, 0); ctx.restore();
+}
+function applyColour(hex, params) {
+  tryOnHex = hex; if (params) tryOnParams = { ...DEFAULT_PARAMS, ...params };
+  $("p-chip").style.background = hex; $("p-color").value = hex.toLowerCase();
+  syncSliders();
+  if (mode === "photo") drawPhoto();
+}
+
+/* ---------- Presets and fine-tune sliders ---------- */
+let activeSet = "A";
+function renderPresets() {
+  const box = $("preset-swatches"); box.replaceChildren();
+  for (const sh of PRESETS[activeSet].shades) {
+    const b = document.createElement("button"); b.type = "button"; b.className = "swatch-btn";
+    const i = document.createElement("i"); i.style.background = sh.colour; b.append(i, sh.name);
+    b.addEventListener("click", () => {
+      showProduct({ brand: "", product: sh.name, shade: sh.label, confidence: "high", note: PRESETS[activeSet].title + ". Illustrative example colour, not a real product." });
+      $("p-tag").textContent = "Ready-made shade"; applyColour(sh.colour, sh.params);
+      if (mode === "idle") startCamera();
+    });
+    box.append(b);
+  }
+}
+for (const k of ["A", "B"]) $("set-" + k).addEventListener("click", () => {
+  activeSet = k; for (const j of ["A", "B"]) $("set-" + j).setAttribute("aria-pressed", String(j === k)); renderPresets();
+});
+const SLIDER_LABELS = { opacity: "Opacity", gloss: "Gloss", smoothing: "Smoothing", saturation: "Saturation", brightness: "Brightness" };
+function buildSliders() {
+  const box = $("sliders");
+  for (const [k, r] of Object.entries(RANGES)) {
+    const wrap = document.createElement("div");
+    wrap.innerHTML = `<label for="sl-${k}">${SLIDER_LABELS[k]} <span id="sv-${k}"></span></label><input type="range" id="sl-${k}" min="${r.min}" max="${r.max}" step="${r.step}">`;
+    box.append(wrap);
+    wrap.querySelector("input").addEventListener("input", (e) => {
+      tryOnParams = { ...tryOnParams, [k]: Number(e.target.value) }; $("sv-" + k).textContent = Number(e.target.value).toFixed(2);
+      if (mode === "photo") drawPhoto();
+    });
+  }
+}
+function syncSliders() {
+  for (const k of Object.keys(RANGES)) { $("sl-" + k).value = tryOnParams[k]; $("sv-" + k).textContent = Number(tryOnParams[k]).toFixed(2); }
+}
+buildSliders(); renderPresets();
+
+/* ---------- Product card ---------- */
+const CONFIDENCE_TAG = { high: "Colour: close match", medium: "Colour: approximate", low: "Colour: rough guess" };
+function showProduct(p) {
+  $("product").hidden = false;
+  const title = [p.brand, p.product].filter(Boolean).join(" ") || "Your lipstick";
+  $("p-name").textContent = title;
+  $("p-shade").textContent = p.shade ? `Shade: ${p.shade}` : "Shade not identified";
+  const tag = $("p-tag"); tag.textContent = CONFIDENCE_TAG[p.confidence] || CONFIDENCE_TAG.low;
+  tag.className = "tag " + (p.confidence === "high" ? "good" : p.confidence === "medium" ? "okay" : "far");
+  $("p-note").textContent = p.note || (p.confidence === "high" ? "" : "This colour is an estimate. Use the colour picker to fine-tune it, and check the shade in person.");
+}
+function showManual() {
+  showProduct({ brand: "Your own colour", product: "", shade: "", confidence: "low", note: "Pick the colour that matches your lipstick." });
+  $("p-shade").textContent = "";
+  $("p-tag").textContent = "Colour: chosen by you"; $("p-tag").className = "tag okay";
+  applyColour(tryOnHex || "#B0324B");
+}
+$("p-color").addEventListener("input", (e) => applyColour(e.target.value.toUpperCase()));
+$("manual-open").addEventListener("click", async () => { showManual(); if (mode === "idle") await startCamera(); });
+$("clear-tryon").addEventListener("click", () => {
+  tryOnHex = null; $("product").hidden = true; if (mode === "photo") drawPhoto();
+});
+
+/* ---------- Finding the shade ---------- */
+const ERRORS = {
+  not_configured: "Link reading isn't switched on yet. You can still pick the colour yourself below.",
+  rate_limited: "The free AI limit was reached for now. Try again in a minute, or pick the colour yourself.",
+  bad_url: "That link didn't look right. Check it, or type the brand and shade name instead.",
+  bad_request: "Type a product link or a brand and shade name (at least 3 letters).",
+};
+$("find").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const query = $("q").value.trim();
+  if (query.length < 3) { setStatus(ERRORS.bad_request, true); return; }
+  const go = $("go"); go.disabled = true; go.textContent = "Reading…";
+  setStatus("Finding your shade…");
+  const camera = startCamera(); // open the mirror while the AI reads the page
+  try {
+    const res = await fetch("/api/extract", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query }), signal: AbortSignal.timeout(30000) });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.error) {
+      setStatus(ERRORS[data.error] || "Couldn't read that one. Try typing the brand and shade name, or pick the colour yourself.", true);
+      showManual();
+    } else if (!data.isLipProduct) {
+      setStatus("That doesn't look like a lipstick. Try a lipstick link or shade name.", true);
+    } else if (!data.hex) {
+      showProduct(data); applyColour(tryOnHex || "#B0324B");
+      setStatus(data.shade ? "We found the product but not its colour. Adjust the colour below." : "This page lists many shades and we couldn't tell which you picked. Type the shade name, or adjust the colour below.", true);
+    } else {
+      showProduct(data); applyColour(data.hex, DEFAULT_PARAMS); setStatus("");
+    }
+  } catch {
+    setStatus("Couldn't reach the shade reader. You can pick the colour yourself below.", true); showManual();
+  }
+  await camera;
+  go.disabled = false; go.textContent = "Try it on";
+});
+
+/* ---------- Experiment: Perfect Corp (local only, uploads the photo) ---------- */
+if (["localhost", "127.0.0.1"].includes(location.hostname)) {
+  $("pc-block").hidden = false;
+  document.querySelector(".panel").prepend($("pc-block")); // local test: show the experiment first
+  const refresh = () => { $("pc-go").disabled = !$("pc-consent").checked || !tryOnHex || mode === "idle"; };
+  $("pc-consent").addEventListener("change", refresh);
+  setInterval(refresh, 500);
+  const pcStatus = (m) => { $("pc-status").textContent = m; };
+  const frameAsJpegBase64 = () => {
+    const src = mode === "live" ? video : photo;
+    const sw = mode === "live" ? video.videoWidth : photo.width, sh = mode === "live" ? video.videoHeight : photo.height;
+    const k = Math.min(1, 1280 / Math.max(sw, sh));
+    const c = document.createElement("canvas"); c.width = Math.round(sw * k); c.height = Math.round(sh * k);
+    c.getContext("2d").drawImage(src, 0, 0, c.width, c.height);
+    return c.toDataURL("image/jpeg", 0.9).split(",")[1];
+  };
+  const post = async (payload) => {
+    const res = await fetch("/api/perfect-tryon", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    return { res, data: await res.json().catch(() => ({})) };
+  };
+  $("pc-go").addEventListener("click", async () => {
+    $("pc-go").disabled = true; $("pc-result").hidden = true; pcStatus("Uploading your photo to Perfect Corp…");
+    try {
+      const { res, data } = await post({
+        action: "start", mime: "image/jpeg", imageBase64: frameAsJpegBase64(),
+        color: adjustColour(tryOnHex, tryOnParams), opacity: tryOnParams.opacity, gloss: tryOnParams.gloss,
+      });
+      if (data.error === "not_configured") { pcStatus("Not set up: start the dev server with the PERFECT_API_KEY environment variable."); return; }
+      if (!res.ok || !data.taskId) { pcStatus("Perfect Corp said no: " + (data.detail || data.error || res.status)); return; }
+      for (let i = 0; i < 30; i++) {
+        pcStatus("Perfect Corp is applying the lipstick…");
+        await new Promise((r) => setTimeout(r, 1500));
+        const s = await post({ action: "status", taskId: data.taskId });
+        if (s.data.status === "success") { $("pc-result").src = s.data.url; $("pc-result").hidden = false; pcStatus("Done. This is Perfect Corp's result."); return; }
+        if (s.data.status === "error" || !s.res.ok) { pcStatus("Perfect Corp failed: " + (s.data.detail || s.data.error || s.res.status)); return; }
+      }
+      pcStatus("Timed out waiting for Perfect Corp.");
+    } catch { pcStatus("Something went wrong talking to the test function."); }
+    finally { refresh(); }
+  });
+}
+
+renderControls();
+</script>
+</body>
+</html>

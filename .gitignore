@@ -1,0 +1,11 @@
+# Never upload these to GitHub
+.env
+.env.*
+.netlify/
+node_modules/
+private/
+CLAUDE.md
+START_HERE.md
+.DS_Store
+Thumbs.db
+deno.lock
