@@ -40,7 +40,7 @@ Write a short styling note in 3 short paragraphs (under 110 words total):
 3. One practical tip for testing the foundation match in person.
 Rules: warm and encouraging, no medical or skin-condition advice, never comment on attractiveness or suggest someone should look lighter or darker, mention only the shade names given, and if confidence is under 60% suggest retaking the photo in daylight. Plain text only, no markdown.`;
 
-  const model = process.env.GEMINI_MODEL || "gemini-2.5-flash-lite";
+  const model = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
   let res;
   try {
     res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
