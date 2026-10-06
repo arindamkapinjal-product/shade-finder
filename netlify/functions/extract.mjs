@@ -43,20 +43,22 @@ export default async (req) => {
   if (image) parts.push({ inline_data: { mime_type: image.mime, data: image.data } });
 
   const model = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
-  let res;
-  try {
-    res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": key },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts }],
-        generationConfig: { temperature: 0.1, maxOutputTokens: 300, responseMimeType: "application/json" },
-      }),
-      signal: AbortSignal.timeout(20000),
-    });
-  } catch {
-    return json({ error: "upstream_unreachable" }, 502);
+  // The free tier sometimes hangs: wait up to 9 seconds, then try once more
+  const callGemini = () => fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+    body: JSON.stringify({
+      contents: [{ role: "user", parts }],
+      generationConfig: { temperature: 0.1, maxOutputTokens: 300, responseMimeType: "application/json" },
+    }),
+    signal: AbortSignal.timeout(9000),
+  });
+  let res = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try { res = await callGemini(); } catch { res = null; }
+    if (res && res.status < 500) break;
   }
+  if (!res) return json({ error: "upstream_unreachable" }, 502);
   if (res.status === 429) return json({ error: "rate_limited" }, 429);
   if (!res.ok) return json({ error: "upstream_error" }, 502);
 
