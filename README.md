@@ -2,7 +2,7 @@
 
 Paste a lipstick link or type a shade, and see it on your face in the live camera before you buy.
 
-**Try it:** link coming soon.
+**Try it:** https://arindam-shade-finder.netlify.app
 
 ## What it does
 
